@@ -85,21 +85,23 @@ REM Static Release version
 cd tmp_openssl\openssl*
 
 if "%FORMAT%" == "dll" (
-	if %COMPILER_VER% == "6" (
-		perl Configure %TARGET% enable-static-engine  -DOPENSSL_USE_IPV6=0 --prefix=openssl-%CONFIG%-%FORMAT%
-	) else (
-		perl Configure %TARGET% enable-static-engine --prefix=openssl-%CONFIG%-%FORMAT%
+	perl Configure %TARGET% enable-static-engine --prefix=openssl-%CONFIG%-%FORMAT%
+	if "%TARGET%" == "VC-WIN32" (
+		call ms\do_ms.bat
+	) 
+	if "%TARGET%" == "VC-WIN64A" (
+		call ms\do_win64a.bat
 	)
-	call ms\do_ms.bat
 	nmake -f ms/ntdll.mak
 	nmake -f ms/ntdll.mak install	
 ) else (
-	if %COMPILER_VER% == "6" (
-		perl Configure %TARGET% -DOPENSSL_USE_IPV6=0 --prefix=openssl-%CONFIG%-%FORMAT%
-	) else (
-		perl Configure %TARGET% --prefix=openssl-%CONFIG%-%FORMAT%
+	perl Configure %TARGET% --prefix=openssl-%CONFIG%-%FORMAT%
+	if "%TARGET%" == "VC-WIN32" (
+		call ms\do_ms.bat
+	) 
+	if "%TARGET%" == "VC-WIN64A" (
+		call ms\do_win64a.bat
 	)
-	call ms\do_ms.bat
 	nmake -f ms/nt.mak
 	nmake -f ms/nt.mak install
 )
@@ -121,13 +123,19 @@ set TARGET=%1
 if "%TARGET%"=="VC-WIN32" (
 	set BITS=32
 	call %MSVCDIR%\VC\vcvarsall.bat x86
+	goto build
 )
 
 if "%TARGET%"=="VC-WIN64A" (
 	set BITS=64
 	call %MSVCDIR%\VC\vcvarsall.bat x64
+	goto build
 )
 
+echo Unsupported target : Only VC-WIN32 and VC-WIN64A supported.
+goto end
+
+:build
 call :build %TARGET% release static %BITS%
 call :build %TARGET% release dll %BITS%
 call :build debug-%TARGET% debug static %BITS%
@@ -136,7 +144,6 @@ call :build debug-%TARGET% debug dll %BITS%
 goto end
 
 :build_all
-
 call :build_target VC-WIN32
 call :build_target VC-WIN64A
 
