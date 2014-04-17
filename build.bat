@@ -8,59 +8,41 @@ REM Check if Visual Studio 2013 is installed
 set MSVCDIR="%PROGFILES%\Microsoft Visual Studio 12.0"
 if exist %MSVCDIR% (
     set COMPILER_VER="2013"
-	goto setup_env
+	goto begin
 )
 
 REM Check if Visual Studio 2012 is installed
 set MSVCDIR="%PROGFILES%\Microsoft Visual Studio 11.0"
 if exist %MSVCDIR% (
     set COMPILER_VER="2012"
-	goto setup_env
+	goto begin
 )
 
 REM Check if Visual Studio 2010 is installed
 set MSVCDIR="%PROGFILES%\Microsoft Visual Studio 10.0"
 if exist %MSVCDIR% (
     set COMPILER_VER="2010"
-	goto setup_env
+	goto begin
 )
 
 REM Check if Visual Studio 2008 is installed
 set MSVCDIR="%PROGFILES%\Microsoft Visual Studio 9.0"
 if exist %MSVCDIR% (
     set COMPILER_VER="2008"
-	goto setup_env
+	goto begin
 )
 
 REM Check if Visual Studio 2005 is installed
 set MSVCDIR="%PROGFILES%\Microsoft Visual Studio 8"
 if exist %MSVCDIR% (
 	set COMPILER_VER="2005"
-	goto setup_env
+	goto begin
 ) 
 
-REM Check if Visual Studio 6 is installed
-set MSVCDIR="%PROGFILES%\Microsoft Visual Studio\VC98"
-if exist %MSVCDIR% (
-	set COMPILER_VER="6"
-	goto setup_env
-) 
-
-echo No compiler : Microsoft Visual Studio (6, 2005, 2008, 2010, 2012 or 2013) is not installed.
+echo No compiler : Microsoft Visual Studio (2005, 2008, 2010, 2012 or 2013) is not installed.
 goto end
 
-:setup_env
-
-echo Setting up environment
-if %COMPILER_VER% == "6" (
-	call %MSVCDIR%\Bin\VCVARS32.BAT
-	goto begin
-)
-
-call %MSVCDIR%\VC\vcvarsall.bat x86
-
 :begin
-
 REM Setup path to helper bin
 set ROOT_DIR="%CD%"
 set RM="%CD%\bin\unxutils\rm.exe"
@@ -69,7 +51,7 @@ set MKDIR="%CD%\bin\unxutils\mkdir.exe"
 set SEVEN_ZIP="%CD%\bin\7-zip\7za.exe"
 set WGET="%CD%\bin\unxutils\wget.exe"
 set XIDEL="%CD%\bin\xidel\xidel.exe"
-path %path%;%CD%\bin\perl\perl\bin\
+path %path%;%CD%\bin\perl\perl\bin\;%CD%\bin\nasm
 
 REM Housekeeping
 %RM% -rf tmp_*
@@ -88,89 +70,77 @@ echo Downloading latest openssl...
 
 REM Extract downloaded zip file to tmp_openssl
 %SEVEN_ZIP% x openssl.tar.gz -y | FIND /V "Igor Pavlov"
+
+goto build_all
+
+:build
+set TARGET=%1
+set CONFIG=%2
+set FORMAT=%3
+set BITS=%4
+
 %SEVEN_ZIP% x openssl.tar -y -otmp_openssl | FIND /V "ing  " | FIND /V "Igor Pavlov"
 
 REM Static Release version
 cd tmp_openssl\openssl*
 
-if %COMPILER_VER% == "6" (
-perl Configure VC-WIN32 no-asm -DOPENSSL_USE_IPV6=0 --prefix=openssl-release-static
+if "%FORMAT%" == "dll" (
+	if %COMPILER_VER% == "6" (
+		perl Configure %TARGET% enable-static-engine  -DOPENSSL_USE_IPV6=0 --prefix=openssl-%CONFIG%-%FORMAT%
+	) else (
+		perl Configure %TARGET% enable-static-engine --prefix=openssl-%CONFIG%-%FORMAT%
+	)
+	call ms\do_ms.bat
+	nmake -f ms/ntdll.mak
+	nmake -f ms/ntdll.mak install	
 ) else (
-perl Configure VC-WIN32 no-asm --prefix=openssl-release-static
+	if %COMPILER_VER% == "6" (
+		perl Configure %TARGET% -DOPENSSL_USE_IPV6=0 --prefix=openssl-%CONFIG%-%FORMAT%
+	) else (
+		perl Configure %TARGET% --prefix=openssl-%CONFIG%-%FORMAT%
+	)
+	call ms\do_ms.bat
+	nmake -f ms/nt.mak
+	nmake -f ms/nt.mak install
 )
 
-call ms\do_ms.bat
-nmake -f ms/nt.mak
-nmake -f ms/nt.mak install
-
-%MKDIR% -p %ROOT_DIR%\third-party\libopenssl\lib\lib-release
-%CP% openssl-release-static\lib\*.lib %ROOT_DIR%\third-party\libopenssl\lib\lib-release
-%CP% -rf openssl-release-static\include %ROOT_DIR%\third-party\libopenssl
-
-cd %ROOT_DIR%
-%RM% -rf tmp_openssl
-%SEVEN_ZIP% x openssl.tar -y -otmp_openssl | FIND /V "ing  " | FIND /V "Igor Pavlov"
-
-REM DLL Release version
-cd tmp_openssl\openssl*
-
-if %COMPILER_VER% == "6" (
-perl Configure VC-WIN32 no-asm enable-static-engine -DOPENSSL_USE_IPV6=0 --prefix=openssl-release-dll
-) else (
-perl Configure VC-WIN32 no-asm enable-static-engine --prefix=openssl-release-dll
+%MKDIR% -p %ROOT_DIR%\third-party\libopenssl\%CONFIG%-%FORMAT%-%BITS%\lib
+%CP% -rf openssl-%CONFIG%-%FORMAT%\include %ROOT_DIR%\third-party\libopenssl\%CONFIG%-%FORMAT%-%BITS%
+%CP% openssl-%CONFIG%-%FORMAT%\lib\*.lib %ROOT_DIR%\third-party\libopenssl\%CONFIG%-%FORMAT%-%BITS%\lib
+if "%FORMAT%" == "dll" (
+	%CP% openssl-%CONFIG%-%FORMAT%\bin\*.dll %ROOT_DIR%\third-party\libopenssl\%CONFIG%-%FORMAT%-%BITS%\lib
 )
-
-call ms\do_ms.bat
-nmake -f ms/ntdll.mak
-nmake -f ms/ntdll.mak install
-
-%MKDIR% -p %ROOT_DIR%\third-party\libopenssl\lib\dll-release
-%CP% openssl-release-dll\lib\*.lib %ROOT_DIR%\third-party\libopenssl\lib\dll-release
-%CP% openssl-release-dll\bin\*.dll %ROOT_DIR%\third-party\libopenssl\lib\dll-release
-
-cd %ROOT_DIR%
-%RM% -rf tmp_openssl
-%SEVEN_ZIP% x openssl.tar -y -otmp_openssl | FIND /V "ing  " | FIND /V "Igor Pavlov"
-
-REM Static Debug version
-cd tmp_openssl\openssl*
-
-if %COMPILER_VER% == "6" (
-perl Configure debug-VC-WIN32 no-asm -DOPENSSL_USE_IPV6=0 --prefix=openssl-debug-static
-) else (
-perl Configure debug-VC-WIN32 no-asm --prefix=openssl-debug-static
-)
-
-call ms\do_ms.bat
-nmake -f ms/nt.mak
-nmake -f ms/nt.mak install
-
-%MKDIR% -p %ROOT_DIR%\third-party\libopenssl\lib\lib-debug
-%CP% openssl-debug-static\lib\*.lib %ROOT_DIR%\third-party\libopenssl\lib\lib-debug
 
 cd %ROOT_DIR%
 %RM% -rf tmp_openssl
 
-REM DLL Debug version
-%SEVEN_ZIP% x openssl.tar -y -otmp_openssl | FIND /V "ing  " | FIND /V "Igor Pavlov"
-cd tmp_openssl\openssl*
+goto end
 
-if %COMPILER_VER% == "6" (
-perl Configure debug-VC-WIN32 no-asm enable-static-engine -DOPENSSL_USE_IPV6=0 --prefix=openssl-debug-dll
-) else (
-perl Configure debug-VC-WIN32 no-asm enable-static-engine --prefix=openssl-debug-dll
+:build_target
+set TARGET=%1
+if "%TARGET%"=="VC-WIN32" (
+	set BITS=32
+	call %MSVCDIR%\VC\vcvarsall.bat x86
 )
 
-call ms\do_ms.bat
-nmake -f ms/ntdll.mak
-nmake -f ms/ntdll.mak install
+if "%TARGET%"=="VC-WIN64A" (
+	set BITS=64
+	call %MSVCDIR%\VC\vcvarsall.bat x64
+)
 
-%MKDIR% -p %ROOT_DIR%\third-party\libopenssl\lib\dll-debug
-%CP% openssl-debug-dll\lib\*.lib %ROOT_DIR%\third-party\libopenssl\lib\dll-debug
-%CP% openssl-debug-dll\bin\*.dll %ROOT_DIR%\third-party\libopenssl\lib\dll-debug
+call :build %TARGET% release static %BITS%
+call :build %TARGET% release dll %BITS%
+call :build debug-%TARGET% debug static %BITS%
+call :build debug-%TARGET% debug dll %BITS%
 
-cd %ROOT_DIR%
+goto end
 
+:build_all
+
+call :build_target VC-WIN32
+call :build_target VC-WIN64A
+
+:cleanup
 %RM% -rf tmp_*
 %RM% -rf openssl.tar*
 %RM% -rf build_*.txt
