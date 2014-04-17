@@ -4,7 +4,6 @@ Auto download & compile openssl
 This batch script will automatically download the latest openssl source code and build it using Visual Studio compiler.
 
 Supported Visual Studio are:
-*  Visual C++ 6 (IPV6 not supported, -DOPENSSL_USE_IPV6=0 )
 *  Visual Studio 2005
 *  Visual Studio 2008
 *  Visual Studio 2010
@@ -19,8 +18,30 @@ Output :
 
     third-party
     |-- libopenssl
-    |    |-- include
-    |    +-- lib
+	|    |-- release-static-32 
+    |    |    |-- include
+    |    |    +-- lib
+	|    |-- release-dll-32 
+    |    |    |-- include
+    |    |    +-- lib
+	|    |-- debug-static-32 
+    |    |    |-- include
+    |    |    +-- lib
+	|    |-- debug-dll-32 
+    |    |    |-- include
+    |    |    +-- lib
+	|    |-- release-static-64
+    |    |    |-- include
+    |    |    +-- lib
+	|    |-- release-dll-64
+    |    |    |-- include
+    |    |    +-- lib
+	|    |-- debug-static-64 
+    |    |    |-- include
+    |    |    +-- lib
+	|    |-- debug-dll-64
+    |    |    |-- include
+    |    |    +-- lib
     
 
 License (build.bat)
